@@ -62,6 +62,8 @@ Pour cette itération, on adopte une approche **Test-Driven Development**. Le cy
 
 ## Tâche 1 — Initialiser le projet Cargo
 
+> **Statut : ✅ Terminée**
+
 ### Objectif
 
 Créer le projet Rust, configurer les dépendances, vérifier que tout compile.
@@ -91,9 +93,9 @@ Créer le projet Rust, configurer les dépendances, vérifier que tout compile.
 
 ### Critères de validation
 
-- [ ] `cargo build` compile sans erreur
-- [ ] `cargo run` affiche quelque chose et quitte proprement
-- [ ] `cargo clippy` ne remonte aucun warning
+- [x] `cargo build` compile sans erreur
+- [x] `cargo run` affiche quelque chose et quitte proprement
+- [x] `cargo clippy` ne remonte aucun warning
 
 ### Lecture recommandée
 
@@ -103,6 +105,8 @@ Créer le projet Rust, configurer les dépendances, vérifier que tout compile.
 ---
 
 ## Tâche 2 — Structurer les modules
+
+> **Statut : ✅ Terminée**
 
 ### Objectif
 
@@ -193,9 +197,9 @@ Fais de même pour `db/mod.rs`, `services/mod.rs` et `ui/mod.rs`.
 
 ### Critères de validation
 
-- [ ] L'arborescence correspond au PRD
-- [ ] `cargo build` compile
-- [ ] `cargo clippy` est propre
+- [x] L'arborescence correspond au PRD
+- [x] `cargo build` compile
+- [x] `cargo clippy` est propre
 
 ### Lecture recommandée
 
@@ -204,6 +208,8 @@ Fais de même pour `db/mod.rs`, `services/mod.rs` et `ui/mod.rs`.
 ---
 
 ## Tâche 3 — Définir les structs du modèle de données
+
+> **Statut : ✅ Terminée**
 
 ### Objectif
 
@@ -365,10 +371,10 @@ mod tests {
 
 ### Critères de validation
 
-- [ ] Tous les tests compilent et passent au vert
-- [ ] Toutes les structs compilent
-- [ ] Les enums couvrent toutes les valeurs possibles
-- [ ] `cargo test` passe intégralement
+- [x] Tous les tests compilent et passent au vert
+- [x] Toutes les structs compilent
+- [x] Les enums couvrent toutes les valeurs possibles
+- [x] `cargo test` passe intégralement
 
 ### Lecture recommandée
 
