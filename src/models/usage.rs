@@ -1,11 +1,11 @@
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum UsageLevel {
-    Heavy,
-    Occasional,
-    Rare,
     Never,
+    Rare,
+    Occasional,
+    Heavy,
 }
 
 impl fmt::Display for UsageLevel {
@@ -41,7 +41,11 @@ mod tests {
     }
 
     #[test]
-    fn test_usage_level_ordering() {}
+    fn test_usage_level_ordering() {
+        assert!(UsageLevel::Heavy > UsageLevel::Occasional);
+        assert!(UsageLevel::Occasional > UsageLevel::Rare);
+        assert!(UsageLevel::Rare > UsageLevel::Never);
+    }
 
     #[test]
     fn test_usage() {
