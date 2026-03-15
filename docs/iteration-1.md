@@ -466,10 +466,10 @@ mod tests {
 
 ### Critères de validation
 
-- [ ] Tous les tests passent
-- [ ] Au premier `cargo run`, la base est créée
-- [ ] Tu peux ouvrir le fichier avec `sqlite3 data/subtracker.db` et voir les tables (`.tables`)
-- [ ] Un deuxième `cargo run` ne crashe pas (idempotent)
+- [X] Tous les tests passent
+- [X] Au premier `cargo run`, la base est créée
+- [X] Tu peux ouvrir le fichier avec `sqlite3 data/subtracker.db` et voir les tables (`.tables`)
+- [X] Un deuxième `cargo run` ne crashe pas (idempotent)
 
 ### Lecture recommandée
 

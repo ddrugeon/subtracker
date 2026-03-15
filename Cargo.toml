@@ -11,4 +11,5 @@ ratatui = "0.30.0"
 rusqlite = { version = "0.38.0", features = ["bundled"] }
 serde = "1.0.228"
 serde_derive = "1.0.228"
+tempfile = "3.27.0"
 toml = "1.0.1"
