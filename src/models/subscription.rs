@@ -3,7 +3,7 @@ use std::fmt;
 use chrono::NaiveDate;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Frequency {
+pub enum Frequency {
     Monthly,
     Quarterly,
     Yearly,
@@ -20,7 +20,7 @@ impl fmt::Display for Frequency {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum SubscriptionStatus {
+pub enum SubscriptionStatus {
     Active,
     Archived,
 }
@@ -35,7 +35,7 @@ impl fmt::Display for SubscriptionStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum PaymentSource {
+pub enum PaymentSource {
     Apple,
     BankTransfer,
     CreditCard,
@@ -58,23 +58,23 @@ impl fmt::Display for PaymentSource {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Subscription {
-    id: Option<u64>,
-    name: String,
-    provider: Option<String>,
-    amount: f64,
-    frequency: Frequency,
-    is_bundle: bool,
-    is_family_plan: bool,
-    payment_source: PaymentSource,
-    start_date: NaiveDate,
-    renewal_date: Option<NaiveDate>,
-    status: SubscriptionStatus,
-    notes: Option<String>,
+pub struct Subscription {
+    pub id: Option<u64>,
+    pub name: String,
+    pub provider: Option<String>,
+    pub amount: f64,
+    pub frequency: Frequency,
+    pub is_bundle: bool,
+    pub is_family_plan: bool,
+    pub payment_source: PaymentSource,
+    pub start_date: NaiveDate,
+    pub renewal_date: Option<NaiveDate>,
+    pub status: SubscriptionStatus,
+    pub notes: Option<String>,
 }
 
 impl Subscription {
-    fn builder(
+    pub fn builder(
         name: String,
         amount: f64,
         frequency: Frequency,
@@ -83,7 +83,7 @@ impl Subscription {
         SubscriptionBuilder::new(name, amount, frequency, start_date)
     }
 
-    fn monthly_cost(&self) -> f64 {
+    pub fn monthly_cost(&self) -> f64 {
         match self.frequency {
             Frequency::Monthly => self.amount,
             Frequency::Quarterly => self.amount / 3.0,
@@ -92,7 +92,7 @@ impl Subscription {
     }
 }
 
-struct SubscriptionBuilder {
+pub struct SubscriptionBuilder {
     id: Option<u64>,
     name: String,
     amount: f64,
@@ -122,42 +122,42 @@ impl SubscriptionBuilder {
             notes: None,
         }
     }
-    fn with_id(mut self, id: Option<u64>) -> Self {
+    pub fn with_id(mut self, id: Option<u64>) -> Self {
         self.id = id;
         self
     }
 
-    fn with_provider(mut self, provider: String) -> Self {
+    pub fn with_provider(mut self, provider: String) -> Self {
         self.provider = Some(provider);
         self
     }
 
-    fn with_bundle(mut self, is_bundle: bool) -> Self {
+    pub fn with_bundle(mut self, is_bundle: bool) -> Self {
         self.is_bundle = is_bundle;
         self
     }
 
-    fn with_family_plan(mut self, is_family_plan: bool) -> Self {
+    pub fn with_family_plan(mut self, is_family_plan: bool) -> Self {
         self.is_family_plan = is_family_plan;
         self
     }
 
-    fn with_payment_source(mut self, payment_source: PaymentSource) -> Self {
+    pub fn with_payment_source(mut self, payment_source: PaymentSource) -> Self {
         self.payment_source = payment_source;
         self
     }
 
-    fn with_renewal_date(mut self, renewal_date: NaiveDate) -> Self {
+    pub fn with_renewal_date(mut self, renewal_date: NaiveDate) -> Self {
         self.renewal_date = Some(renewal_date);
         self
     }
 
-    fn with_notes(mut self, notes: String) -> Self {
+    pub fn with_notes(mut self, notes: String) -> Self {
         self.notes = Some(notes);
         self
     }
 
-    fn build(self) -> Subscription {
+    pub fn build(self) -> Subscription {
         Subscription {
             id: self.id,
             name: self.name,
