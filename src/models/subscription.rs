@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 use chrono::NaiveDate;
 
@@ -9,12 +9,27 @@ pub enum Frequency {
     Yearly,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseFrequencyError;
+
 impl fmt::Display for Frequency {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Frequency::Monthly => write!(f, "Mensuel"),
             Frequency::Quarterly => write!(f, "Trimestriel"),
             Frequency::Yearly => write!(f, "Annuel"),
+        }
+    }
+}
+
+impl FromStr for Frequency {
+    type Err = ParseFrequencyError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Mensuel" => Ok(Frequency::Monthly),
+            "Trimestriel" => Ok(Frequency::Quarterly),
+            "Annuel" => Ok(Frequency::Yearly),
+            _ => return Err(ParseFrequencyError),
         }
     }
 }
@@ -44,6 +59,9 @@ pub enum PaymentSource {
     Other,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParsePaymentSourceError;
+
 impl fmt::Display for PaymentSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -53,6 +71,21 @@ impl fmt::Display for PaymentSource {
             PaymentSource::DirectDebit => write!(f, "DirectDebit"),
             PaymentSource::PayPal => write!(f, "PayPal"),
             PaymentSource::Other => write!(f, "Other"),
+        }
+    }
+}
+
+impl FromStr for PaymentSource {
+    type Err = ParsePaymentSourceError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Apple" => Ok(PaymentSource::Apple),
+            "BankTransfer" => Ok(PaymentSource::BankTransfer),
+            "CreditCard" => Ok(PaymentSource::CreditCard),
+            "DirectDebit" => Ok(PaymentSource::DirectDebit),
+            "Paypal" => Ok(PaymentSource::PayPal),
+            "Other" => Ok(PaymentSource::Other),
+            _ => return Err(ParsePaymentSourceError),
         }
     }
 }

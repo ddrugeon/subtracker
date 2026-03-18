@@ -1,9 +1,65 @@
 use anyhow::Result;
-use rusqlite::Connection;
+use rusqlite::{Connection, Row};
 
-use crate::models::subscription;
+use crate::models::subscription::{self, Frequency, PaymentSource, Subscription};
+use chrono::NaiveDate;
 
-fn insert_subscription(conn: Connection, subscription: subscription::Subscription) -> Result<i64> {
+fn extract_subscription_from_row(row: &Row) -> rusqlite::Result<Subscription> {
+    let id: u64 = row.get::<_, i64>(0)? as u64;
+    let name: String = row.get(1)?;
+    let provider: Option<String> = row.get(2)?;
+    let amount: f64 = row.get(3)?;
+    let frequency_str: String = row.get(4)?;
+    let is_bundle: bool = row.get(5)?;
+    let is_family_plan: bool = row.get(6)?;
+    let payment_source_str: String = row.get(7)?;
+    let start_date_str: String = row.get(8)?;
+    let renewal_date_str: Option<String> = row.get(9)?;
+    let notes: Option<String> = row.get(10)?;
+
+    let frequency = frequency_str.parse::<Frequency>().map_err(|_| {
+        rusqlite::Error::InvalidColumnType(3, "frequency".into(), rusqlite::types::Type::Text)
+    })?;
+
+    let start_date = NaiveDate::parse_from_str(&start_date_str, "%Y-%m-%d").map_err(|_| {
+        rusqlite::Error::InvalidColumnType(7, "start_date".into(), rusqlite::types::Type::Text)
+    })?;
+
+    let renewal_date = renewal_date_str
+        .map(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d"))
+        .transpose()
+        .map_err(|_| {
+            rusqlite::Error::InvalidColumnType(
+                8,
+                "renewal_date".into(),
+                rusqlite::types::Type::Text,
+            )
+        })?;
+
+    let payment_source = payment_source_str.parse::<PaymentSource>().map_err(|_| {
+        rusqlite::Error::InvalidColumnType(6, "payment_source".into(), rusqlite::types::Type::Text)
+    })?;
+
+    let mut builder = Subscription::builder(name, amount, frequency, start_date)
+        .with_id(Some(id))
+        .with_bundle(is_bundle)
+        .with_family_plan(is_family_plan)
+        .with_payment_source(payment_source);
+
+    if let Some(p) = provider {
+        builder = builder.with_provider(p);
+    }
+    if let Some(d) = renewal_date {
+        builder = builder.with_renewal_date(d);
+    }
+    if let Some(n) = notes {
+        builder = builder.with_notes(n);
+    }
+
+    Ok(builder.build())
+}
+
+fn insert_subscription(conn: &Connection, subscription: subscription::Subscription) -> Result<i64> {
     conn.execute(
         "INSERT INTO subscriptions(
             name, provider, amount, frequency, monthly_cost,
@@ -32,19 +88,27 @@ fn insert_subscription(conn: Connection, subscription: subscription::Subscriptio
     Ok(conn.last_insert_rowid())
 }
 
-fn list_subscriptions(conn: Connection) -> Result<Vec<subscription::Subscription>> {
+fn list_subscriptions(conn: &Connection) -> Result<Vec<subscription::Subscription>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, provider, amount, frequency, is_bundle, is_family_plan,
+                payment_source, start_date, renewal_date, notes
+         FROM subscriptions",
+    )?;
+
+    let rows = stmt.query_map([], extract_subscription_from_row)?;
+
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+}
+
+fn get_subscription(conn: &Connection, id: i64) -> Result<Option<subscription::Subscription>> {
     todo!()
 }
 
-fn get_subscription(conn: Connection, id: i64) -> Result<Option<subscription::Subscription>> {
+fn update_subscription(conn: &Connection, subscription: subscription::Subscription) -> Result<()> {
     todo!()
 }
 
-fn update_subscription(conn: Connection, subscription: subscription::Subscription) -> Result<()> {
-    todo!()
-}
-
-fn delete_subscription(conn: Connection, id: i64) -> Result<()> {
+fn delete_subscription(conn: &Connection, id: i64) -> Result<()> {
     todo!()
 }
 
@@ -70,8 +134,6 @@ mod tests {
 
     #[test]
     fn test_insert_subscription_returns_id() {
-        // Insérer un abonnement
-        // Vérifier que l'id retourné est > 0
         let conn = setup_test_db();
 
         let sub = Subscription::builder(
@@ -88,33 +150,91 @@ mod tests {
         .with_notes("Bundle Premium".to_string())
         .build();
 
-        let result = insert_subscription(conn, sub).unwrap();
+        let result = insert_subscription(&conn, sub).unwrap();
         assert!(result > 0);
     }
 
     #[test]
     fn test_insert_subscription_increments_id() {
-        // Insérer deux abonnements
-        // Vérifier que le deuxième id = premier id + 1
+        let conn = setup_test_db();
+
+        let sub = Subscription::builder(
+            "Apple One".to_string(),
+            34.99,
+            Frequency::Monthly,
+            NaiveDate::from_ymd_opt(2023, 6, 1).unwrap(),
+        )
+        .with_id(Some(0))
+        .with_provider("Apple".to_string())
+        .with_bundle(true)
+        .with_family_plan(true)
+        .with_payment_source(PaymentSource::Apple)
+        .with_notes("Bundle Premium".to_string())
+        .build();
+
+        let sub1_id = insert_subscription(&conn, sub.clone()).unwrap();
+        let sub2_id = insert_subscription(&conn, sub).unwrap();
+        assert_eq!(sub1_id + 1, sub2_id);
     }
 
     #[test]
     fn test_insert_subscription_with_optional_fields_none() {
         // Insérer un abonnement sans notes, sans renewal_date
-        // Vérifier que l'insertion ne crashe pas
+        let conn = setup_test_db();
+
+        let sub = Subscription::builder(
+            "Apple One".to_string(),
+            34.99,
+            Frequency::Monthly,
+            NaiveDate::from_ymd_opt(2023, 6, 1).unwrap(),
+        )
+        .with_id(Some(0))
+        .with_provider("Apple".to_string())
+        .with_bundle(true)
+        .with_family_plan(true)
+        .with_payment_source(PaymentSource::Apple)
+        .build();
+
+        let sub1_id = insert_subscription(&conn, sub.clone()).unwrap();
+        assert!(sub1_id > 0);
     }
 
     // --- SELECT ---
 
     #[test]
     fn test_list_subscriptions_empty() {
-        // Base vide → retourne un Vec vide
+        let conn = setup_test_db();
+
+        let subscriptions = list_subscriptions(&conn).unwrap();
+        assert_eq!(subscriptions.len(), 0)
     }
 
     #[test]
     fn test_list_subscriptions_returns_all() {
         // Insérer 3 abonnements
         // list_subscriptions retourne un Vec de taille 3
+        let conn = setup_test_db();
+
+        let sub = Subscription::builder(
+            "Apple One".to_string(),
+            34.99,
+            Frequency::Monthly,
+            NaiveDate::from_ymd_opt(2023, 6, 1).unwrap(),
+        )
+        .with_id(Some(0))
+        .with_provider("Apple".to_string())
+        .with_bundle(true)
+        .with_family_plan(true)
+        .with_payment_source(PaymentSource::Apple)
+        .with_notes("Bundle Premium".to_string())
+        .build();
+
+        let sub1_id = insert_subscription(&conn, sub.clone()).unwrap();
+        let sub2_id = insert_subscription(&conn, sub.clone()).unwrap();
+        let sub3_id = insert_subscription(&conn, sub.clone()).unwrap();
+
+        let subscriptions = list_subscriptions(&conn).unwrap();
+        assert_eq!(subscriptions.len(), 3)
     }
 
     #[test]
