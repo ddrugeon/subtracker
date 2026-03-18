@@ -90,8 +90,17 @@ fn insert_subscription(conn: &Connection, subscription: subscription::Subscripti
 
 fn list_subscriptions(conn: &Connection) -> Result<Vec<subscription::Subscription>> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, provider, amount, frequency, is_bundle, is_family_plan,
-                payment_source, start_date, renewal_date, notes
+        "SELECT id,
+                name,
+                provider,
+                amount,
+                frequency,
+                is_bundle,
+                is_family_plan,
+                payment_source,
+                start_date,
+                renewal_date,
+                notes
          FROM subscriptions",
     )?;
 
@@ -101,7 +110,29 @@ fn list_subscriptions(conn: &Connection) -> Result<Vec<subscription::Subscriptio
 }
 
 fn get_subscription(conn: &Connection, id: i64) -> Result<Option<subscription::Subscription>> {
-    todo!()
+    let result = conn.query_row(
+        "SELECT id,
+                name,
+                provider,
+                amount,
+                frequency,
+                is_bundle,
+                is_family_plan,
+                payment_source,
+                start_date,
+                renewal_date,
+                notes
+         FROM subscriptions
+         WHERE id = ?1",
+        [id],
+        extract_subscription_from_row,
+    );
+
+    match result {
+        Ok(sub) => Ok(Some(sub)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
 }
 
 fn update_subscription(conn: &Connection, subscription: subscription::Subscription) -> Result<()> {
@@ -239,14 +270,30 @@ mod tests {
 
     #[test]
     fn test_get_subscription_by_id() {
-        // Insérer un abonnement "Netflix" à 19.99€
-        // get_subscription(id) retourne Some(subscription)
-        // Vérifier que name == "Netflix" et amount == 19.99
+        let conn = setup_test_db();
+
+        let sub = Subscription::builder(
+            "Netflix".to_string(),
+            19.99,
+            Frequency::Monthly,
+            NaiveDate::from_ymd_opt(2023, 6, 1).unwrap(),
+        )
+        .build();
+
+        let sub_id = insert_subscription(&conn, sub).unwrap();
+
+        let returned_subscription = get_subscription(&conn, sub_id).unwrap().unwrap();
+        assert_eq!(returned_subscription.name, "Netflix");
+        assert_eq!(returned_subscription.amount, 19.99);
     }
 
     #[test]
     fn test_get_subscription_not_found() {
         // get_subscription(999) retourne None
+        let conn = setup_test_db();
+
+        let subscription = get_subscription(&conn, 999).unwrap();
+        assert_eq!(subscription, None);
     }
 
     // --- UPDATE ---
