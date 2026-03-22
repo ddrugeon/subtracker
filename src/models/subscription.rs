@@ -49,6 +49,20 @@ impl fmt::Display for SubscriptionStatus {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParseSubscriptionStatusError;
+
+impl FromStr for SubscriptionStatus {
+    type Err = ParseSubscriptionStatusError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Active" => Ok(SubscriptionStatus::Active),
+            "Archivée" => Ok(SubscriptionStatus::Archived),
+            _ => Err(ParseSubscriptionStatusError),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PaymentSource {
     Apple,
@@ -83,7 +97,7 @@ impl FromStr for PaymentSource {
             "BankTransfer" => Ok(PaymentSource::BankTransfer),
             "CreditCard" => Ok(PaymentSource::CreditCard),
             "DirectDebit" => Ok(PaymentSource::DirectDebit),
-            "Paypal" => Ok(PaymentSource::PayPal),
+            "PayPal" => Ok(PaymentSource::PayPal),
             "Other" => Ok(PaymentSource::Other),
             _ => return Err(ParsePaymentSourceError),
         }
@@ -136,6 +150,7 @@ pub struct SubscriptionBuilder {
     is_family_plan: bool,
     payment_source: PaymentSource,
     renewal_date: Option<NaiveDate>,
+    status: SubscriptionStatus,
     notes: Option<String>,
 }
 
@@ -152,6 +167,7 @@ impl SubscriptionBuilder {
             is_family_plan: false,
             payment_source: PaymentSource::Other,
             renewal_date: None,
+            status: SubscriptionStatus::Active,
             notes: None,
         }
     }
@@ -185,6 +201,11 @@ impl SubscriptionBuilder {
         self
     }
 
+    pub fn with_status(mut self, status: SubscriptionStatus) -> Self {
+        self.status = status;
+        self
+    }
+
     pub fn with_notes(mut self, notes: String) -> Self {
         self.notes = Some(notes);
         self
@@ -202,7 +223,7 @@ impl SubscriptionBuilder {
             payment_source: self.payment_source,
             start_date: self.start_date,
             renewal_date: self.renewal_date,
-            status: SubscriptionStatus::Active,
+            status: self.status,
             notes: self.notes,
         }
     }

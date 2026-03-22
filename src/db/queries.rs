@@ -1,7 +1,9 @@
 use anyhow::Result;
 use rusqlite::{Connection, Row};
 
-use crate::models::subscription::{self, Frequency, PaymentSource, Subscription};
+use crate::models::subscription::{
+    self, Frequency, PaymentSource, Subscription, SubscriptionStatus,
+};
 use chrono::NaiveDate;
 
 fn extract_subscription_from_row(row: &Row) -> rusqlite::Result<Subscription> {
@@ -16,13 +18,14 @@ fn extract_subscription_from_row(row: &Row) -> rusqlite::Result<Subscription> {
     let start_date_str: String = row.get(8)?;
     let renewal_date_str: Option<String> = row.get(9)?;
     let notes: Option<String> = row.get(10)?;
+    let status_str: String = row.get(11)?;
 
     let frequency = frequency_str.parse::<Frequency>().map_err(|_| {
-        rusqlite::Error::InvalidColumnType(3, "frequency".into(), rusqlite::types::Type::Text)
+        rusqlite::Error::InvalidColumnType(4, "frequency".into(), rusqlite::types::Type::Text)
     })?;
 
     let start_date = NaiveDate::parse_from_str(&start_date_str, "%Y-%m-%d").map_err(|_| {
-        rusqlite::Error::InvalidColumnType(7, "start_date".into(), rusqlite::types::Type::Text)
+        rusqlite::Error::InvalidColumnType(8, "start_date".into(), rusqlite::types::Type::Text)
     })?;
 
     let renewal_date = renewal_date_str
@@ -30,21 +33,26 @@ fn extract_subscription_from_row(row: &Row) -> rusqlite::Result<Subscription> {
         .transpose()
         .map_err(|_| {
             rusqlite::Error::InvalidColumnType(
-                8,
+                9,
                 "renewal_date".into(),
                 rusqlite::types::Type::Text,
             )
         })?;
 
     let payment_source = payment_source_str.parse::<PaymentSource>().map_err(|_| {
-        rusqlite::Error::InvalidColumnType(6, "payment_source".into(), rusqlite::types::Type::Text)
+        rusqlite::Error::InvalidColumnType(7, "payment_source".into(), rusqlite::types::Type::Text)
+    })?;
+
+    let status = status_str.parse::<SubscriptionStatus>().map_err(|_| {
+        rusqlite::Error::InvalidColumnType(11, "status".into(), rusqlite::types::Type::Text)
     })?;
 
     let mut builder = Subscription::builder(name, amount, frequency, start_date)
         .with_id(Some(id))
         .with_bundle(is_bundle)
         .with_family_plan(is_family_plan)
-        .with_payment_source(payment_source);
+        .with_payment_source(payment_source)
+        .with_status(status);
 
     if let Some(p) = provider {
         builder = builder.with_provider(p);
@@ -100,7 +108,8 @@ fn list_subscriptions(conn: &Connection) -> Result<Vec<subscription::Subscriptio
                 payment_source,
                 start_date,
                 renewal_date,
-                notes
+                notes,
+                status
          FROM subscriptions",
     )?;
 
@@ -121,7 +130,8 @@ fn get_subscription(conn: &Connection, id: i64) -> Result<Option<subscription::S
                 payment_source,
                 start_date,
                 renewal_date,
-                notes
+                notes,
+                status
          FROM subscriptions
          WHERE id = ?1",
         [id],
@@ -136,11 +146,47 @@ fn get_subscription(conn: &Connection, id: i64) -> Result<Option<subscription::S
 }
 
 fn update_subscription(conn: &Connection, subscription: subscription::Subscription) -> Result<()> {
-    todo!()
+    let id = subscription
+        .id
+        .ok_or_else(|| anyhow::anyhow!("Cannot update subscription without id"))?
+        as i64;
+    conn.execute(
+        "UPDATE subscriptions SET
+            name = :name,
+            provider = :provider,
+            amount = :amount,
+            frequency = :frequency,
+            monthly_cost = :monthly_cost,
+            is_bundle = :is_bundle,
+            is_family_plan = :is_family_plan,
+            payment_source = :payment_source,
+            start_date = :start_date,
+            renewal_date = :renewal_date,
+            status = :status,
+            notes = :notes
+         WHERE id = :id",
+        rusqlite::named_params! {
+            ":id": id,
+            ":name": subscription.name,
+            ":provider": subscription.provider,
+            ":amount": subscription.amount,
+            ":frequency": subscription.frequency.to_string(),
+            ":monthly_cost": subscription.monthly_cost(),
+            ":is_bundle": subscription.is_bundle,
+            ":is_family_plan": subscription.is_family_plan,
+            ":payment_source": subscription.payment_source.to_string(),
+            ":start_date": subscription.start_date.to_string(),
+            ":renewal_date": subscription.renewal_date.map(|d| d.to_string()),
+            ":status": subscription.status.to_string(),
+            ":notes": subscription.notes,
+        },
+    )?;
+    Ok(())
 }
 
 fn delete_subscription(conn: &Connection, id: i64) -> Result<()> {
-    todo!()
+    conn.execute("DELETE FROM subscriptions WHERE id = ?1", [id])?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -300,45 +346,139 @@ mod tests {
 
     #[test]
     fn test_update_subscription_changes_name() {
-        // Insérer "Netflix Standard"
-        // Modifier le nom en "Netflix Premium"
-        // get_subscription → name == "Netflix Premium"
+        let conn = setup_test_db();
+
+        let sub = Subscription::builder(
+            "Netflix Standard".to_string(),
+            13.49,
+            Frequency::Monthly,
+            NaiveDate::from_ymd_opt(2023, 1, 1).unwrap(),
+        )
+        .build();
+        let id = insert_subscription(&conn, sub).unwrap();
+
+        let mut updated = get_subscription(&conn, id).unwrap().unwrap();
+        updated.name = "Netflix Premium".to_string();
+        update_subscription(&conn, updated).unwrap();
+
+        let result = get_subscription(&conn, id).unwrap().unwrap();
+        assert_eq!(result.name, "Netflix Premium");
     }
 
     #[test]
     fn test_update_subscription_changes_amount() {
-        // Insérer un abonnement à 13.49€
-        // Modifier le montant à 19.99€
-        // Vérifier que le montant ET le monthly_cost sont mis à jour
+        let conn = setup_test_db();
+
+        let sub = Subscription::builder(
+            "Spotify".to_string(),
+            13.49,
+            Frequency::Monthly,
+            NaiveDate::from_ymd_opt(2023, 1, 1).unwrap(),
+        )
+        .build();
+        let id = insert_subscription(&conn, sub).unwrap();
+
+        let mut updated = get_subscription(&conn, id).unwrap().unwrap();
+        updated.amount = 19.99;
+        update_subscription(&conn, updated).unwrap();
+
+        let result = get_subscription(&conn, id).unwrap().unwrap();
+        assert_eq!(result.amount, 19.99);
     }
 
     // --- DELETE ---
 
     #[test]
     fn test_delete_subscription() {
-        // Insérer un abonnement
-        // Le supprimer
-        // get_subscription → None
+        let conn = setup_test_db();
+
+        let sub = Subscription::builder(
+            "Canal+".to_string(),
+            20.99,
+            Frequency::Monthly,
+            NaiveDate::from_ymd_opt(2023, 1, 1).unwrap(),
+        )
+        .build();
+        let id = insert_subscription(&conn, sub).unwrap();
+
+        delete_subscription(&conn, id).unwrap();
+
+        let result = get_subscription(&conn, id).unwrap();
+        assert_eq!(result, None);
     }
 
     #[test]
     fn test_delete_subscription_not_in_list() {
-        // Insérer 2 abonnements
-        // Supprimer le premier
-        // list_subscriptions retourne 1 seul abonnement (le deuxième)
+        let conn = setup_test_db();
+
+        let sub1 = Subscription::builder(
+            "Disney+".to_string(),
+            8.99,
+            Frequency::Monthly,
+            NaiveDate::from_ymd_opt(2023, 1, 1).unwrap(),
+        )
+        .build();
+        let sub2 = Subscription::builder(
+            "Amazon Prime".to_string(),
+            6.99,
+            Frequency::Monthly,
+            NaiveDate::from_ymd_opt(2023, 1, 1).unwrap(),
+        )
+        .build();
+
+        let id1 = insert_subscription(&conn, sub1).unwrap();
+        insert_subscription(&conn, sub2).unwrap();
+
+        delete_subscription(&conn, id1).unwrap();
+
+        let remaining = list_subscriptions(&conn).unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].name, "Amazon Prime");
     }
 
     // --- CAS LIMITES ---
 
     #[test]
     fn test_insert_subscription_special_characters() {
-        // Insérer un abonnement avec un nom contenant des apostrophes
-        // ex: "L'Équipe" — vérifier que ça ne casse pas le SQL
+        let conn = setup_test_db();
+
+        let sub = Subscription::builder(
+            "L'Équipe".to_string(),
+            9.99,
+            Frequency::Monthly,
+            NaiveDate::from_ymd_opt(2023, 1, 1).unwrap(),
+        )
+        .build();
+        let id = insert_subscription(&conn, sub).unwrap();
+
+        let result = get_subscription(&conn, id).unwrap().unwrap();
+        assert_eq!(result.name, "L'Équipe");
     }
 
     #[test]
     fn test_monthly_cost_calculated_correctly() {
-        // Insérer un abonnement annuel à 99€
-        // Vérifier que monthly_cost en base = 8.25
+        let conn = setup_test_db();
+
+        let sub = Subscription::builder(
+            "iCloud+".to_string(),
+            99.0,
+            Frequency::Yearly,
+            NaiveDate::from_ymd_opt(2023, 1, 1).unwrap(),
+        )
+        .build();
+        let id = insert_subscription(&conn, sub).unwrap();
+
+        let monthly_cost: f64 = conn
+            .query_row(
+                "SELECT monthly_cost FROM subscriptions WHERE id = ?1",
+                [id],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(
+            (monthly_cost * 100.0).round(),
+            (99.0_f64 / 12.0 * 100.0).round()
+        );
     }
 }
