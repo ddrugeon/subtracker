@@ -631,11 +631,11 @@ mod tests {
 
 ### Critères de validation
 
-- [ ] Tous les tests passent avec `cargo test`
-- [ ] Tu peux insérer un abonnement et le retrouver par id
-- [ ] La liste retourne tous les abonnements insérés
-- [ ] La modification met à jour les champs
-- [ ] La suppression retire l'abonnement de la liste
+- [X] Tous les tests passent avec `cargo test`
+- [X] Tu peux insérer un abonnement et le retrouver par id
+- [X] La liste retourne tous les abonnements insérés
+- [X] La modification met à jour les champs
+- [X] La suppression retire l'abonnement de la liste
 
 ### Lecture recommandée
 
@@ -800,11 +800,11 @@ mod alternative_tests {
 
 ### Critères de validation
 
-- [ ] Tous les tests passent
-- [ ] Le catalogue se charge et contient les services attendus
-- [ ] Les alternatives se chargent avec tous les champs
-- [ ] Une erreur dans le TOML remonte une erreur claire
-- [ ] Un fichier manquant remonte une erreur (pas de panic)
+- [X] Tous les tests passent
+- [X] Le catalogue se charge et contient les services attendus
+- [X] Les alternatives se chargent avec tous les champs
+- [X] Une erreur dans le TOML remonte une erreur claire
+- [X] Un fichier manquant remonte une erreur (pas de panic)
 
 ### Lecture recommandée
 
